@@ -18,6 +18,8 @@ function App() {
   const [imagesOriginal, setImageOriginal] = useState<IImage[]>([])
   const [openModalOriginal, setOpenModalOriginal] = useState<boolean>(false)
   const [preview, setPreview] = useState<number>(0)
+  // Al exportar: true numera los archivos por su posición; false conserva el nombre original.
+  const [renameFiles, setRenameFiles] = useState<boolean>(true)
 
   const onChangeImages = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -80,15 +82,23 @@ function App() {
             })
           }
         </div>
-        <div className='col-span-2 py-4'>
+        <div className='col-span-2 py-4 flex items-center gap-4'>
           <button className='bg-white hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded'
             type='button'
             onClick={() => {
-              exportFile(imagesOriginal, namePack)
+              exportFile(imagesOriginal, namePack, renameFiles)
             }}
           >
             Export archivos
           </button>
+          <label className='flex items-center gap-2 text-white'>
+            <input
+              type='checkbox'
+              checked={renameFiles}
+              onChange={(e) => setRenameFiles(e.target.checked)}
+            />
+            Renombrar con números
+          </label>
         </div>
       </div>
       {
@@ -99,13 +109,19 @@ function App() {
             closedModal={((state) => setOpenModalOriginal(state))}
             onSave={((blob) => {
               console.log('ejecutando', preview)
-              //const format = getFormat(file.file!.type)
-              const num = getZeroFill(preview + 1, imagesOriginal.length)
-              const myFile = blobToFile(blob, `${num}.png`, `image/png`);
-              const nuevo = imagesOriginal.map((file) => {
-                if (file.pagina === preview + 1) {
+              // La editada sale como PNG pero conserva el nombre original (solo cambia la extensión),
+              // para que "conservar nombre" al exportar también funcione con las imágenes censuradas.
+              const original = imagesOriginal[preview]
+              const originalName = original.file?.name
+              const name = originalName
+                ? `${originalName.lastIndexOf('.') > 0 ? originalName.slice(0, originalName.lastIndexOf('.')) : originalName}.png`
+                : `${getZeroFill(preview + 1, imagesOriginal.length)}.png`
+              const myFile = blobToFile(blob, name, `image/png`);
+              const nuevo = imagesOriginal.map((file, i) => {
+                // Por posición y no por `pagina`: con varios lotes cargados, `pagina` se repite.
+                if (i === preview) {
                   file = {
-                    pagina: preview + 1,
+                    pagina: original.pagina,
                     data: URL.createObjectURL(myFile),
                     description: uuidv4(),
                     file: myFile
